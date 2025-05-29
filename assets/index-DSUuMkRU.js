@@ -16477,12 +16477,7 @@ function useCartQuantity({ stock, selectedCartItem, onChange }) {
     handleDecrease
   };
 }
-function CartItem({
-  cartItem,
-  isSelected,
-  handleCheckboxClick,
-  refetch
-}) {
+function CartItem({ cartItem, isSelected, handleCheckboxClick, refetch }) {
   const {
     product: { imageUrl, price, name },
     quantity
@@ -16535,7 +16530,7 @@ function CartItem({
           onError: (e2) => {
             const target = e2.currentTarget;
             target.onerror = null;
-            target.src = "/images/default-img.png";
+            target.src = "images/default-img.png";
           }
         }
       ) }),
