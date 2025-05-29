@@ -9029,9 +9029,16 @@ var __accessCheck = (obj, member, msg) => member.has(obj) || __typeError("Cannot
 var __privateGet = (obj, member, getter) => (__accessCheck(obj, member, "read from private field"), getter ? getter.call(obj) : member.get(obj));
 var __privateAdd = (obj, member, value) => member.has(obj) ? __typeError("Cannot add the same private member more than once") : member instanceof WeakSet ? member.add(obj) : member.set(obj, value);
 var PopStateEventType = "popstate";
-function createBrowserHistory(options = {}) {
-  function createBrowserLocation(window2, globalHistory) {
-    let { pathname, search, hash: hash2 } = window2.location;
+function createHashHistory(options = {}) {
+  function createHashLocation(window2, globalHistory) {
+    let {
+      pathname = "/",
+      search = "",
+      hash: hash2 = ""
+    } = parsePath(window2.location.hash.substring(1));
+    if (!pathname.startsWith("/") && !pathname.startsWith(".")) {
+      pathname = "/" + pathname;
+    }
     return createLocation(
       "",
       { pathname, search, hash: hash2 },
@@ -9040,13 +9047,28 @@ function createBrowserHistory(options = {}) {
       globalHistory.state && globalHistory.state.key || "default"
     );
   }
-  function createBrowserHref(window2, to) {
-    return typeof to === "string" ? to : createPath(to);
+  function createHashHref(window2, to) {
+    let base = window2.document.querySelector("base");
+    let href2 = "";
+    if (base && base.getAttribute("href")) {
+      let url = window2.location.href;
+      let hashIndex = url.indexOf("#");
+      href2 = hashIndex === -1 ? url : url.slice(0, hashIndex);
+    }
+    return href2 + "#" + (typeof to === "string" ? to : createPath(to));
+  }
+  function validateHashLocation(location, to) {
+    warning(
+      location.pathname.charAt(0) === "/",
+      `relative pathnames are not supported in hash history.push(${JSON.stringify(
+        to
+      )})`
+    );
   }
   return getUrlBasedHistory(
-    createBrowserLocation,
-    createBrowserHref,
-    null,
+    createHashLocation,
+    createHashHref,
+    validateHashLocation,
     options
   );
 }
@@ -9146,6 +9168,8 @@ function getUrlBasedHistory(getLocation, createHref2, validateLocation, options 
   function push(to, state) {
     action = "PUSH";
     let location = createLocation(history.location, to, state);
+    if (validateLocation)
+      validateLocation(location, to);
     index = getIndex() + 1;
     let historyState = getHistoryState(location, index);
     let url = history.createHref(location);
@@ -9164,6 +9188,8 @@ function getUrlBasedHistory(getLocation, createHref2, validateLocation, options 
   function replace2(to, state) {
     action = "REPLACE";
     let location = createLocation(history.location, to, state);
+    if (validateLocation)
+      validateLocation(location, to);
     index = getIndex();
     let historyState = getHistoryState(location, index);
     let url = history.createHref(location);
@@ -14247,12 +14273,12 @@ try {
   }
 } catch (e2) {
 }
-function createBrowserRouter(routes, opts) {
+function createHashRouter(routes, opts) {
   return createRouter({
     basename: opts == null ? void 0 : opts.basename,
     unstable_getContext: opts == null ? void 0 : opts.unstable_getContext,
     future: opts == null ? void 0 : opts.future,
-    history: createBrowserHistory({ window: opts == null ? void 0 : opts.window }),
+    history: createHashHistory({ window: opts == null ? void 0 : opts.window }),
     hydrationData: parseHydrationData(),
     routes,
     mapRouteProperties,
@@ -16718,7 +16744,7 @@ function ShoppingCartPage() {
     ) })
   ] });
 }
-const router = createBrowserRouter([
+const router = createHashRouter([
   {
     path: "/",
     element: /* @__PURE__ */ jsx$1(ShoppingCartPage, {})
