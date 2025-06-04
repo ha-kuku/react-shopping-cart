@@ -16159,7 +16159,7 @@ const Button$1 = newStyled.button`
 function Button({ onClick, children, isDisabled = false, ...props }) {
   return /* @__PURE__ */ jsx$1(Button$1, { onClick, isDisabled, ...props, children });
 }
-const headerLayout = pt.header`
+const HeaderLayout = newStyled.header`
   position: relative;
   display: flex;
   align-items: center;
@@ -16174,11 +16174,11 @@ const headerLayout = pt.header`
   font-size: 20px;
   font-weight: 800;
 `;
-const Title = pt.div`
+const Title = newStyled.div`
   cursor: pointer;
 `;
 function Header({ title, handleTitleClick }) {
-  return /* @__PURE__ */ jsx$1(headerLayout, { children: /* @__PURE__ */ jsx$1(Title, { onClick: handleTitleClick, children: title }) });
+  return /* @__PURE__ */ jsx$1(HeaderLayout, { children: /* @__PURE__ */ jsx$1(Title, { onClick: handleTitleClick, children: title }) });
 }
 const Spacing$1 = newStyled.div`
   height: ${({ size }) => size}px;
@@ -16272,9 +16272,12 @@ async function getCartItem() {
     page: "0",
     size: "50"
   });
-  return fetch(`${CART_URL}?${params.toString()}`, options).then(
-    (res) => res.json()
-  );
+  const res = await fetch(`${CART_URL}?${params.toString()}`, options);
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.message || `장바구니 불러오기 실패 (status: ${res.status})`);
+  }
+  return res.json();
 }
 async function deleteCartItem(id2) {
   const options = {
@@ -16283,23 +16286,28 @@ async function deleteCartItem(id2) {
       Authorization: `Basic ${"aGEta3VrdTpwYXNzd29yZA"}`
     }
   };
-  return fetch(`${CART_URL}/${id2}`, options);
+  const res = await fetch(`${CART_URL}/${id2}`, options);
+  if (!res.ok) {
+    const errorText = await res.text().catch(() => "");
+    throw new Error(errorText || `장바구니 항목 삭제 실패 (status: ${res.status})`);
+  }
+  return res;
 }
-async function patchCartItem({
-  id: id2,
-  quantity
-}) {
+async function patchCartItem({ id: id2, quantity }) {
   const options = {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Basic ${"aGEta3VrdTpwYXNzd29yZA"}`
     },
-    body: JSON.stringify({
-      quantity
-    })
+    body: JSON.stringify({ quantity })
   };
-  return fetch(`${CART_URL}/${id2}`, options);
+  const res = await fetch(`${CART_URL}/${id2}`, options);
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.message || `수량 변경 실패 (status: ${res.status})`);
+  }
+  return res;
 }
 const CartItemWrapper = newStyled.div`
   display: flex;
@@ -16364,40 +16372,6 @@ const ProductCardCartItemWrapper = newStyled.div`
   border-top: 1px solid #e5e5e5;
   padding: 12px 0;
 `;
-const ButtonWrapper$1 = newStyled.div`
-  display: flex;
-  align-items: center;
-  gap: 16px;
-`;
-const controlButton = css`
-  padding: 0;
-  border-radius: 8px;
-  border: 1.5px solid #e5e5e5;
-  width: 20px;
-  height: 20px;
-  background: #fff;
-  text-align: center;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-`;
-const controlButtonText = css`
-  width: 100%;
-  font-size: 24px;
-  color: #222;
-  text-align: center;
-`;
-const quantityText = css`
-  width: 24px;
-  text-align: center;
-`;
-function PlusMinusButton({ onAddButtonClick, onMinusButtonClick, quantity }) {
-  return /* @__PURE__ */ jsxs(ButtonWrapper$1, { children: [
-    /* @__PURE__ */ jsx$1(Button, { css: controlButton, onClick: onMinusButtonClick, children: /* @__PURE__ */ jsx$1("p", { css: controlButtonText, children: "-" }) }),
-    /* @__PURE__ */ jsx$1("p", { css: quantityText, children: quantity }),
-    /* @__PURE__ */ jsx$1(Button, { css: controlButton, onClick: onAddButtonClick, children: /* @__PURE__ */ jsx$1("p", { css: controlButtonText, children: "+" }) })
-  ] });
-}
 function Uncheck({ ...props }) {
   return /* @__PURE__ */ jsxs(
     "svg",
@@ -16443,7 +16417,7 @@ const CheckboxWrapper$1 = newStyled.div`
 function Checkbox({ checked, onClick }) {
   return /* @__PURE__ */ jsx$1(CheckboxWrapper$1, { checked, onClick, children: /* @__PURE__ */ jsx$1(Uncheck, {}) });
 }
-function useCartQuantity({ stock, selectedCartItem, onChange }) {
+function useCartItemController({ stock, selectedCartItem }) {
   const [quantity, setQuantity] = reactExports.useState((selectedCartItem == null ? void 0 : selectedCartItem.quantity) ?? 0);
   const [showToast, setShowToast] = reactExports.useState(false);
   reactExports.useEffect(() => {
@@ -16458,7 +16432,6 @@ function useCartQuantity({ stock, selectedCartItem, onChange }) {
     }
     await patchCartItem({ id: selectedCartItem.id, quantity: next2 });
     setQuantity(next2);
-    onChange();
   };
   const handleDecrease = async () => {
     const next2 = quantity - 1;
@@ -16468,7 +16441,6 @@ function useCartQuantity({ stock, selectedCartItem, onChange }) {
       await patchCartItem({ id: selectedCartItem.id, quantity: next2 });
     }
     setQuantity(next2);
-    onChange();
   };
   return {
     quantity,
@@ -16477,17 +16449,52 @@ function useCartQuantity({ stock, selectedCartItem, onChange }) {
     handleDecrease
   };
 }
+const ButtonWrapper$1 = newStyled.div`
+  display: flex;
+  align-items: center;
+  gap: 16px;
+`;
+const ControlButton = css`
+  padding: 0;
+  border-radius: 8px;
+  border: 1.5px solid #e5e5e5;
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+const ControlButtonText = css`
+  width: 100%;
+  font-size: 24px;
+  color: #222;
+  text-align: center;
+`;
+const QuantityText = css`
+  width: 24px;
+  text-align: center;
+`;
+function QuantityControlButton({
+  onAddButtonClick,
+  onMinusButtonClick,
+  quantity
+}) {
+  return /* @__PURE__ */ jsxs(ButtonWrapper$1, { children: [
+    /* @__PURE__ */ jsx$1(Button, { css: ControlButton, onClick: onMinusButtonClick, children: /* @__PURE__ */ jsx$1("p", { css: ControlButtonText, children: "-" }) }),
+    /* @__PURE__ */ jsx$1("p", { css: QuantityText, children: quantity }),
+    /* @__PURE__ */ jsx$1(Button, { css: ControlButton, onClick: onAddButtonClick, children: /* @__PURE__ */ jsx$1("p", { css: ControlButtonText, children: "+" }) })
+  ] });
+}
 function CartItem({ cartItem, isSelected, handleCheckboxClick, refetch }) {
   const {
     product: { imageUrl, price, name },
     quantity
   } = cartItem;
-  const { handleIncrease, handleDecrease } = useCartQuantity({
+  const { handleIncrease, handleDecrease } = useCartItemController({
     stock: 100,
     selectedCartItem: cartItem,
-    onChange: () => {
-      console.log("Cart item updated");
-    },
     productId: cartItem.product.id
   });
   const handleAddButtonClick = async () => {
@@ -16541,7 +16548,7 @@ function CartItem({ cartItem, isSelected, handleCheckboxClick, refetch }) {
           "원"
         ] }),
         /* @__PURE__ */ jsx$1(
-          PlusMinusButton,
+          QuantityControlButton,
           {
             quantity,
             onAddButtonClick: handleAddButtonClick,
@@ -16606,18 +16613,17 @@ function ShoppingCartSection({
   selectedItemIds,
   setSelectedItemIds
 }) {
-  const isAllSelected = (items == null ? void 0 : items.content.length) > 0 && selectedItemIds.length === items.content.length;
-  const orderPrice = (items == null ? void 0 : items.content.reduce(
-    (total, item) => selectedItemIds.includes(item.id) ? total + item.product.price * item.quantity : total,
-    0
-  )) || 0;
-  const shippingFee = orderPrice >= 1e5 ? 0 : 3e3;
-  const totalPrice = orderPrice + shippingFee;
-  reactExports.useEffect(() => {
-    if (!items)
-      return;
-    setSelectedItemIds(() => items.content.map((item) => item.id));
-  }, [items, setSelectedItemIds]);
+  const isAllSelected = reactExports.useMemo(() => {
+    return (items == null ? void 0 : items.content.length) > 0 && selectedItemIds.length === items.content.length;
+  }, [items, selectedItemIds]);
+  const { orderPrice, shippingFee, totalPrice } = reactExports.useMemo(() => {
+    const orderPrice2 = (items == null ? void 0 : items.content.reduce((total, item) => {
+      return selectedItemIds.includes(item.id) ? total + item.product.price * item.quantity : total;
+    }, 0)) || 0;
+    const shippingFee2 = orderPrice2 >= 1e5 ? 0 : 3e3;
+    const totalPrice2 = orderPrice2 + shippingFee2;
+    return { orderPrice: orderPrice2, shippingFee: shippingFee2, totalPrice: totalPrice2 };
+  }, [items, selectedItemIds]);
   const handleCheckboxClick = (itemId) => {
     setSelectedItemIds((prev2) => prev2.includes(itemId) ? prev2.filter((id2) => id2 !== itemId) : [...prev2, itemId]);
   };
@@ -16634,7 +16640,7 @@ function ShoppingCartSection({
       /* @__PURE__ */ jsx$1(Spacing, { size: 8 }),
       /* @__PURE__ */ jsxs(Text, { variant: "body-2", children: [
         "현재 ",
-        2,
+        items == null ? void 0 : items.content.length,
         "종류의 상품이 담겨있습니다."
       ] }),
       /* @__PURE__ */ jsx$1(Spacing, { size: 32 }),
@@ -16691,9 +16697,16 @@ const ButtonWrapper = newStyled.div`
   right: 0;
 `;
 function ShoppingCartPage() {
-  const { data, refetch } = useAPI({ fetcher: getCartItem, name: "cartItem" });
+  const { data, isLoading, refetch } = useAPI({ fetcher: getCartItem, name: "cartItem" });
   const navigate = useNavigate();
   const [selectedItemIds, setSelectedItemIds] = reactExports.useState([]);
+  const hasInitialized = reactExports.useRef(false);
+  reactExports.useEffect(() => {
+    if (data && !hasInitialized.current) {
+      hasInitialized.current = true;
+      setSelectedItemIds(data.content.map((item) => item.id));
+    }
+  }, [data]);
   const handleNavigateClick = () => {
     navigate("/completed", {
       state: {
@@ -16701,20 +16714,22 @@ function ShoppingCartPage() {
         quantity: selectedItemIds.reduce((prev2, cur) => {
           const currentCartItem = data == null ? void 0 : data.content.find((it2) => it2.id === cur);
           if (!currentCartItem)
-            return cur;
+            return prev2;
           return prev2 + currentCartItem.quantity;
         }, 0),
         totalPrice: selectedItemIds.reduce((prev2, cur) => {
           const currentCartItem = data == null ? void 0 : data.content.find((it2) => it2.id === cur);
           if (!currentCartItem)
-            return cur;
+            return prev2;
           return prev2 + currentCartItem.product.price * currentCartItem.quantity;
         }, 0)
       }
     });
   };
+  if (isLoading)
+    return /* @__PURE__ */ jsx$1(Text, { variant: "title-1", children: "로딩중입니다" });
   if (!data)
-    return null;
+    return /* @__PURE__ */ jsx$1(Text, { variant: "title-1", children: "데이터가 없습니다" });
   return /* @__PURE__ */ jsxs(Fragment, { children: [
     /* @__PURE__ */ jsx$1(Header, { title: "SHOP" }),
     /* @__PURE__ */ jsx$1(
